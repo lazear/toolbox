@@ -1,23 +1,23 @@
 //! A space-efficient, generational Arena allocator.
-//! 
-//! Invariants: 
-//! 
-//! - The first entry (index 0) will always be Vacant, and serves as the 
+//!
+//! Invariants:
+//!
+//! - The first entry (index 0) will always be Vacant, and serves as the
 //! head of the free list. This allows us to use an Option<NonZeroU32>
 //! to save space
-//! 
-//! - `Index` is also a NonZeroU32, where the highest 8 bits are used to 
+//!
+//! - `Index` is also a NonZeroU32, where the highest 8 bits are used to
 //! store the generation of the entry, and the low 24 bits are represent
 //! the index of the `Entry` in the `Arena`. This puts a hard cap on the
-//! number of generations (255) and items (2^24 - 2) that can be stored 
-//! in the `Arena`, but uses significantlly less space. This could be 
+//! number of generations (255) and items (2^24 - 2) that can be stored
+//! in the `Arena`, but uses significantlly less space. This could be
 //! tuned to use 16 bits for both generation and index if necessary.
 #![forbid(unsafe_code)]
 use std::num::NonZeroU32;
 
 const MIN_CAPACITY: u32 = 16;
 
-/// A generational arena allowing 255 generations, and 2^24 - 2 items 
+/// A generational arena allowing 255 generations, and 2^24 - 2 items
 pub struct Arena<T> {
     data: Vec<Entry<T>>,
     len: u32,
@@ -66,7 +66,7 @@ impl<T> Arena<T> {
     fn next_free(&self) -> Option<NonZeroU32> {
         match self.data.get(0) {
             Some(Entry::Vacant(ref next)) => *next,
-            _ => None
+            _ => None,
         }
     }
 
@@ -78,19 +78,21 @@ impl<T> Arena<T> {
         let (gen, idx) = index.pair();
         match self.data.get(idx as usize) {
             Some(Entry::Occupied(g, val)) if *g == gen => Some(val),
-            _ => None  
+            _ => None,
         }
     }
 
     fn try_insert(&mut self, item: T) -> Option<Index> {
-        let free = self.next_free()?.get();
-        match self.data[free as usize] {
+        let idx = self.next_free()?;
+        let free = idx.get() as usize;
+        match self.data[free] {
             Entry::Occupied(_, _) => panic!("Corrupted free list"),
-
+            Entry::Vacant(next) => {
+                self.data[0] = Entry::Vacant(next);
+                self.data[free] = Entry::Occupied(0, item);
+                Some(Index(idx))
+            }
         }
-
-        
-        
     }
 
     fn reserve(&mut self, n: u32) {
