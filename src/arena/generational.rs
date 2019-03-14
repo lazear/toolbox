@@ -13,6 +13,7 @@
 //! in the `Arena`, but uses significantlly less space. This could be
 //! tuned to use 16 bits for both generation and index if necessary.
 #![forbid(unsafe_code)]
+#![allow(dead_code)]
 use std::num::NonZeroU32;
 
 const MIN_CAPACITY: u32 = 16;
@@ -117,7 +118,7 @@ mod test {
     use super::*;
     #[test]
     fn new() {
-        let mut a = Arena::<u32>::with_capacity(256);
+        let a = Arena::<u32>::with_capacity(256);
         assert_eq!(a.next_free().map(|n| n.get()), Some(1))
     }
 }
