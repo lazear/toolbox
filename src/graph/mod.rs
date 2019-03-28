@@ -1,4 +1,5 @@
 use crate::arena::typed::{Arena, Index};
+use std::num::NonZeroU32;
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub enum Direction {
@@ -17,13 +18,13 @@ impl Direction {
 
 #[derive(Debug, PartialEq)]
 pub struct Edge<E> {
-    pub vertices: [Index; 2],
+    pub vertices: [VertexIndex; 2],
     pub next: [EdgeIndex; 2],
     data: E,
 }
 
 impl<E> Edge<E> {
-    pub fn vertex(&self, dir: Direction) -> Index {
+    pub fn vertex(&self, dir: Direction) -> VertexIndex {
         self.vertices[dir.index()]
     }
 
@@ -44,7 +45,7 @@ pub struct Vertex<V> {
 impl<V> Vertex<V> {
     fn new(data: V) -> Vertex<V> {
         Vertex {
-            edges: [EdgeIndex::Empty; 2],
+            edges: [EdgeIndex(None); 2],
             data,
         }
     }
@@ -55,39 +56,42 @@ impl<V> Vertex<V> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum EdgeIndex {
-    Empty,
-    Edge(u32),
-}
+pub struct EdgeIndex(Option<Index>);
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct VertexIndex(Index);
 
 pub struct Graph<V, E> {
     arena: Arena<Vertex<V>>,
-    edges: Vec<Edge<E>>,
+    edges: Arena<Edge<E>>,
 }
 
 impl<V, E> Graph<V, E> {
     pub fn with_capacity(cap: u32) -> Graph<V, E> {
         Graph {
             arena: Arena::with_capacity(cap as u32),
-            edges: Vec::with_capacity(cap as usize * 2),
+            edges: Arena::with_capacity(cap * 2),
         }
     }
-    pub fn add_vertex(&mut self, data: V) -> Index {
-        self.arena.insert(Vertex::new(data))
+    pub fn add_vertex(&mut self, data: V) -> VertexIndex {
+        VertexIndex(self.arena.insert(Vertex::new(data)))
     }
 
-    pub fn add_edge(&mut self, start: Index, end: Index, data: E) -> EdgeIndex {
-        let idx = EdgeIndex::Edge(self.edges.len() as u32);
-        let outgoing = std::mem::replace(&mut self.arena.get_mut(start).unwrap().edges[0], idx);
-        let incoming = std::mem::replace(&mut self.arena.get_mut(end).unwrap().edges[1], idx);
+    pub fn add_edge(&mut self, start: VertexIndex, end: VertexIndex, data: E) -> EdgeIndex {
         let edge = Edge {
             vertices: [start, end],
-            next: [outgoing, incoming],
+            next: [EdgeIndex(None); 2],
             data,
         };
 
-        self.edges.push(edge);
-        idx
+        let idx = self.edges.insert(edge);
+        let ret = EdgeIndex(Some(idx));
+
+        let outgoing = std::mem::replace(&mut self.arena.get_mut(start.0).unwrap().edges[0], ret);
+        let incoming = std::mem::replace(&mut self.arena.get_mut(end.0).unwrap().edges[1], ret);
+
+        self.edges.get_mut(idx).unwrap().next = [outgoing, incoming];
+        ret
     }
 
     pub fn edges(&self) -> impl Iterator<Item = &Edge<E>> {
@@ -98,14 +102,11 @@ impl<V, E> Graph<V, E> {
         self.arena.iter()
     }
 
-    pub fn get_vertex(&self, index: Index) -> Option<&Vertex<V>> {
-        self.arena.get(index)
+    pub fn get_vertex(&self, index: VertexIndex) -> Option<&Vertex<V>> {
+        self.arena.get(index.0)
     }
 
     pub fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<E>> {
-        match index {
-            EdgeIndex::Edge(e) => self.edges.get(e as usize),
-            EdgeIndex::Empty => None,
-        }
+        self.edges.get(index.0?)
     }
 }

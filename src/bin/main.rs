@@ -1,6 +1,6 @@
 use toolbox;
 use toolbox::arena::typed::{Arena, Index};
-use toolbox::graph::{Direction::*, Edge, EdgeIndex, Graph, Vertex};
+use toolbox::graph::{Direction::*, Edge, EdgeIndex, Graph, Vertex, VertexIndex};
 
 struct CharIter {
     start: char,
@@ -65,5 +65,7 @@ fn main() {
         .vertices()
         .filter(|v| v.data == 'b')
         .collect::<Vec<&Vertex<char>>>()[0];
-    println!("{:?}", b.edges);
+
+    println!("{:?}", std::mem::size_of::<EdgeIndex>());
+    println!("{:?}", std::mem::size_of::<VertexIndex>());
 }
