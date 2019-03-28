@@ -1,4 +1,5 @@
 pub mod arena;
+pub mod graph;
 
 #[cfg(test)]
 mod tests {

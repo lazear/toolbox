@@ -45,7 +45,7 @@ pub struct Arena<T> {
 }
 
 /// An index into an `Arena`
-#[derive(PartialEq, PartialOrd, Copy, Clone)]
+#[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
 pub struct Index(NonZeroU32);
 
 /// Internal entry data structure
@@ -213,9 +213,23 @@ impl<T> Arena<T> {
     /// Get a reference to the item stored at `index`, if it exists
     pub fn get(&self, index: Index) -> Option<&T> {
         match self.data.get(index.0.get() as usize) {
-            Some(Entry::Occupied(t)) => Some(t),
+            Some(Entry::Occupied(ptr)) => Some(ptr),
             _ => None,
         }
+    }
+
+    pub fn get_mut(&mut self, index: Index) -> Option<&mut T> {
+        match self.data.get_mut(index.0.get() as usize) {
+            Some(Entry::Occupied(ptr)) => Some(ptr),
+            _ => None,
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.data.iter().filter_map(|e| match e {
+            Entry::Occupied(t) => Some(t),
+            _ => None,
+        })
     }
 }
 
